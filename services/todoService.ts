@@ -2,7 +2,7 @@ import { Todo } from '../models/schemas/todo';
 
 interface CreateTodo {
   (
-    userId: string,
+    _id: string,
     date: Date,
     todoList: string[],
     completed: boolean[]
@@ -17,13 +17,13 @@ const Error_Message = {
 };
 
 const createTodo: CreateTodo = async (
-  userId,
+  _id,
   date,
   todoList,
   completed
 ) => {
   try {
-    const existingTodo = await Todo.findOne({ userId, date });
+    const existingTodo = await Todo.findOne({ _id, date });
 
     if (existingTodo) {
       existingTodo.todoList.push(...todoList);
@@ -32,7 +32,7 @@ const createTodo: CreateTodo = async (
       return existingTodo;
     }
     const createTodoList = await Todo.create({
-      userId,
+      _id,
       date,
       todoList,
       completed 
@@ -47,9 +47,9 @@ const todoService = {
   //todo 추가
   createTodo,
   //todo 완료
-  async completeStatusUpdateTodo(userId: string, date: Date, todoIndex: number) {
+  async completeStatusUpdateTodo(_id: string, date: Date, todoIndex: number) {
     try {
-      const completeStatusUpdatedTodoList = await Todo.findOne({ userId, date });
+      const completeStatusUpdatedTodoList = await Todo.findOne({ _id, date });
       if (completeStatusUpdatedTodoList) {
         completeStatusUpdatedTodoList.completed[todoIndex] = true;
         await completeStatusUpdatedTodoList.save();
@@ -60,16 +60,16 @@ const todoService = {
     }
   },
   //todo 삭제
-  async deleteTodo(userId: string, date: Date, todoIndex: number) {
+  async deleteTodo(_id: string, date: Date, todoIndex: number) {
     try {
-      const deletedTodoList = await Todo.findOne({ userId, date });
+      const deletedTodoList = await Todo.findOne({ _id, date });
   
       if (deletedTodoList) {
         deletedTodoList.todoList.splice(todoIndex, 1);
         deletedTodoList.completed.splice(todoIndex, 1);
         await deletedTodoList.save();
         if (deletedTodoList.todoList.length === 0) {
-          await Todo.deleteOne({ userId, date });
+          await Todo.deleteOne({ _id, date });
         }
       }
       return deletedTodoList;
@@ -78,9 +78,9 @@ const todoService = {
     }
   },
   //todo 조회
-  async getTodo(userId: string, date: Date) {
+  async getTodo(_id: string, date: Date) {
     try {
-      const getTodo = await Todo.findOne({ userId, date });
+      const getTodo = await Todo.findOne({ _id, date });
       return getTodo;
     } catch (error) {
       throw new Error(Error_Message.getTodoError);

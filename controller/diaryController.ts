@@ -40,6 +40,17 @@ const diaryController = {
       res.status(500).json({ error: error.message });
     }
   },
+  async photoRegisterInDiary(req: Request, res: Response) {
+    try {
+      const { image } = req.body;
+      const { date } = req.params;
+      const { _id } = req.user as IUser;
+      const photoRegisterInDiary = await diaryService.photoRegisterInDiary(_id, new Date(date as string), image);
+      res.status(200).json(photoRegisterInDiary);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
   async updateDiary(req: Request, res: Response) {
     try {
       const {

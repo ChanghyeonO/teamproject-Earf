@@ -2,7 +2,7 @@ import { Diary } from '../models/schemas/diary';
 
 interface CreateDiary {
   (
-    id: string,
+    _id: string,
     date: Date,
     tag: string[],
     title: string,
@@ -13,7 +13,7 @@ interface CreateDiary {
 
 interface UpdateDiary {
   (
-    id: string,
+    _id: string,
     date: Date,
     tag: string[],
     title: string,
@@ -107,6 +107,17 @@ const diaryService = {
   },
   //diary 생성
   createDiary,
+  //diary 사진 등록
+  async photoRegisterInDiary(_id:string, date: Date, image: string) {
+    try {
+      const photoRegisterInDiary = await Diary.findOneAndUpdate(
+        { _id, date },
+        { image });
+      return photoRegisterInDiary;
+    } catch (error) {
+      throw new Error(Error_Message.updateDiaryError);
+    }
+  },
   //diary 수정
   updateDiary,
   //diary 삭제
