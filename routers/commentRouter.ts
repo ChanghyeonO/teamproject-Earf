@@ -13,7 +13,7 @@ commentRouter.post(
 
 // 특정 게시글의 모든 댓글 조회
 commentRouter.get(
-  "/questions/comments/:postId/",
+  "/questions/comments/:postId",
   CommentController.readAllCommentsOfPost,
 );
 
@@ -35,6 +35,13 @@ commentRouter.delete(
   "/questions/comments/:postId/:id",
   authAccess,
   CommentController.deleteComment,
+);
+
+// 댓글에 대한 좋아요 추가 혹은 취소
+commentRouter.patch(
+  "/questions/comments/:postId/:commentId/like",
+  authAccess,
+  CommentController.toggleLike,
 );
 
 export default commentRouter;

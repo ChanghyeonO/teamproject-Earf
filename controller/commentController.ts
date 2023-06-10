@@ -8,11 +8,17 @@ const CommentController = {
   async createComment(req: Request, res: Response) {
     try {
       const { id, name, profileImage, checkedBadge } = req.user as IUser;
-      console.log(req.user);
       const { postId } = req.params;
       const { comment } = req.body;
+
+      if (!Types.ObjectId.isValid(postId)) {
+        res.status(400).json({ error: "유효하지 않은 게시글 ID입니다." });
+        return;
+      }
+
+      const _postId = new Types.ObjectId(postId);
       const newComment = await CommentService.createComment(
-        postId,
+        _postId,
         id,
         name,
         profileImage,
@@ -101,6 +107,26 @@ const CommentController = {
       const _postId = new Types.ObjectId(postId);
       const comments = await CommentService.readAllCommentsOfPost(_postId);
       res.json(comments);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        res.status(500).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: "알 수 없는 오류가 발생했습니다." });
+      }
+    }
+  },
+  // 댓글 좋아요 누르기 / 취소하기
+  async toggleLike(req: Request, res: Response) {
+    try {
+      const { postId } = req.params;
+      const { commentId } = req.params;
+      const { id: userId } = req.user as IUser;
+      const question = await CommentService.toggleLike(
+        postId,
+        commentId,
+        userId,
+      );
+      res.json(question);
     } catch (error: unknown) {
       if (error instanceof Error) {
         res.status(500).json({ error: error.message });

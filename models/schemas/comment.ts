@@ -7,17 +7,23 @@ interface IComment extends Document {
   profileImage: string;
   checkedBadge: string;
   comment: string;
+  likeIds: string[];
 }
 
 const CommentSchema = new Schema<IComment>(
   {
+    postId: {
+      type: Schema.Types.ObjectId,
+      ref: "question",
+      required: true,
+    },
     id: {
       type: String,
-      // required: true,
+      required: true,
     },
     name: {
       type: String,
-      // required: true,
+      required: true,
     },
     profileImage: {
       type: String,
@@ -25,12 +31,18 @@ const CommentSchema = new Schema<IComment>(
     },
     checkedBadge: {
       type: String,
-      // required: true,
+      required: true,
     },
     comment: {
       type: String,
       required: true,
     },
+    likeIds: [
+      {
+        type: String,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true },
 );
