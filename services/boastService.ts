@@ -1,37 +1,31 @@
-import Boast, { IBoast } from "../models/schemas/boast";
 import { Diary } from "../models/schemas/diary";
 
 const boastService = {
   // shareStatus가 true인 다이어리 찾기
-  async loadBoast(): Promise<IBoast[]> {
+  async loadBoast() {
     try {
-      const diaries = await Diary.find({ shareStatus: true });
-
-      const boasts: IBoast[] = [];
-      for (let diary of diaries) {
-        const boast = new Boast({
-          name: diary.name,
-          profileImage: diary.profileImage,
-          checkedBadge: diary.checkedBadge,
-          tag: diary.tag,
-          title: diary.title,
-          content: diary.content,
-          likeIds: diary.likeIds,
-          createdAt: diary.createdAt,
-          imageUrl: diary.imageUrl,
-          date: diary.date,
-          diaryId: diary._id,
-        });
-        await boast.save();
-        boasts.push(boast);
-      }
-
-      boasts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-      return boasts;
+      const diaries = await Diary.find({ shareStatus: true }).sort({
+        createdAt: -1,
+      });
+      return diaries;
     } catch (error) {
       console.error(error);
       throw new Error("자랑하기 게시글을 불러오는데 실패했습니다.");
+    }
+  },
+
+  //tag 검색 기능, tag.length가 1 이하인 게시글만 검색
+  async searchByTag(tag: string) {
+    try {
+      const diaries = await Diary.find({
+        shareStatus: true,
+        tag: { $in: [tag] },
+      }).sort({ createdAt: -1 });
+
+      return diaries;
+    } catch (error) {
+      console.error(error);
+      throw new Error("태그 검색에 실패했습니다.");
     }
   },
 };
