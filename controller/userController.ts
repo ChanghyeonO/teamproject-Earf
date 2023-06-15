@@ -5,7 +5,11 @@ import { IUser, User } from "../models";
 import { randomPassword } from "../utils/randomPassword";
 import sendmail from "../utils/sendmail";
 import bcrypt from "bcrypt";
-import sendResponse from "../utils/sendResponse";
+import {
+  sendResponseData,
+  sendResponseError,
+  sendResponseObj,
+} from "../utils/sendResponse";
 import dotenv from "dotenv";
 import { Path } from "typescript";
 dotenv.config();
@@ -23,10 +27,10 @@ export default class UserController {
       const registeredId = await this.userService.getUserByloginId(id);
       const registeredEmail = await this.userService.getUserByEmail(email);
       if (registeredId) {
-        return sendResponse(res, 409, "이미 등록된 아이디입니다.");
+        throw new Error("이미 등록된 아이디입니다.");
       }
       if (registeredEmail) {
-        return sendResponse(res, 409, "이미 등록된 email입니다.");
+        throw new Error("이미 등록된 email입니다.");
       }
       const user = await this.userService.registerUser(
         id,
@@ -35,9 +39,9 @@ export default class UserController {
         email,
         phoneNumber
       );
-      sendResponse(res, 201, "회원가입이 정상적으로 이루어졌습니다.", user);
-    } catch (error: any) {
-      sendResponse(res, 500, error.message);
+      sendResponseData(res, 201, "회원가입이 정상적으로 이루어졌습니다.", user);
+    } catch (error) {
+      sendResponseError(res, 500, (error as Error).message);
     }
   };
 
@@ -47,11 +51,11 @@ export default class UserController {
       const { id } = req.body;
       const registeredId = await this.userService.getUserByloginId(id);
       if (registeredId) {
-        sendResponse(res, 409, "이미 등록된 아이디입니다.");
+        throw new Error("이미 등록된 아이디입니다.");
       }
-      sendResponse(res, 200, "사용 가능한 아이디입니다.");
+      sendResponseData(res, 200, "사용 가능한 아이디입니다.");
     } catch (error) {
-      sendResponse(res, 500, (error as Error).message);
+      sendResponseError(res, 500, (error as Error).message);
     }
   };
 
@@ -63,19 +67,12 @@ export default class UserController {
         id,
         password
       );
-      // res
-      //   .status(201)
-      //   .json({
-      //     message: "로그인에 성공하였습니다.",
-      //     accessToken,
-      //     refreshToken,
-      //   });
-      sendResponse(res, 201, "로그인에 성공하였습니다.", {
+      sendResponseObj(res, 201, "로그인에 성공하였습니다.", {
         accessToken,
         refreshToken,
       });
     } catch (error) {
-      sendResponse(res, 500, (error as Error).message);
+      sendResponseError(res, 500, (error as Error).message);
     }
   };
 
@@ -85,12 +82,12 @@ export default class UserController {
       const { id } = req.user as IUser;
       if (id) {
         await this.userService.invalidateTokens(id);
-        res.status(200).json({ message: "로그아웃되었습니다." });
+        sendResponseData(res, 200, "로그아웃되었습니다.");
       } else {
-        res.status(400).json({ error: "사용자를 식별할 수 없습니다." });
+        throw new Error("사용자를 식별할 수 없습니다.");
       }
     } catch (error) {
-      sendResponse(res, 500, (error as Error).message);
+      sendResponseError(res, 500, (error as Error).message);
     }
   };
 
@@ -99,9 +96,9 @@ export default class UserController {
     try {
       const { _id } = req.user as IUser;
       const user = await this.userService.getUserById(_id);
-      res.json(user);
+      sendResponseData(res, 200, "success", user);
     } catch (error) {
-      sendResponse(res, 500, "유저정보를 불러오는데 실패하였습니다.");
+      sendResponseError(res, 500, "유저정보를 불러오는데 실패하였습니다.");
     }
   };
 
@@ -112,7 +109,7 @@ export default class UserController {
       const user = await this.userService.getUserById(_id);
       res.json(user?.name);
     } catch (error) {
-      sendResponse(res, 500, "유저정보를 불러오는데 실패하였습니다.");
+      sendResponseError(res, 500, "유저정보를 불러오는데 실패하였습니다.");
     }
   };
 
@@ -122,7 +119,7 @@ export default class UserController {
       const users = await this.userService.getAllUsers();
       res.json(users);
     } catch (error) {
-      sendResponse(res, 500, "전체 유저정보를 불러오는데 실패하였습니다.");
+      sendResponseError(res, 500, "전체 유저정보를 불러오는데 실패하였습니다.");
     }
   };
 
@@ -306,7 +303,7 @@ export default class UserController {
       checkAndAddBadge(user, "교통", user.transportNum >= 3);
       checkAndAddBadge(user, "버켓", user.basketNum >= 3);
 
-      sendResponse(
+      sendResponseData(
         res,
         200,
         "뱃지 획득에 성공하였습니다. 지구를 지켜주셔서 감사합니다!"
