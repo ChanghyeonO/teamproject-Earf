@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import boastService from "../services/boastService";
+
 import { IUser } from "../models";
 
 const BoastController = {
@@ -11,6 +12,7 @@ const BoastController = {
       const diary = await boastService.loadSingleDiary(id as string);
 
       res.status(200).json(diary);
+
     } catch (error) {
       if (error instanceof Error) {
         res.status(500).json({ error: error.message });
@@ -21,6 +23,7 @@ const BoastController = {
       }
     }
   },
+
 
   // 자랑하기 게시글 불러오기 (태그가 제공되면 해당 태그로 필터링)
   async loadBoast(req: Request, res: Response) {
@@ -40,6 +43,7 @@ const BoastController = {
       }
     }
   },
+
 
   // 좋아요가 많은 상위 5개의 자랑하기 게시글 불러오기
   async loadTop5Boast(req: Request, res: Response) {

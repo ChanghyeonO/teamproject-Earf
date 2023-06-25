@@ -3,6 +3,7 @@ import { Diary } from "../models/schemas/diary";
 const boastService = {
   // _id를 이용해 shareStatus가 true인 단일 다이어리 게시글 찾기
   async loadSingleDiary(id: string) {
+
     try {
       const diary = await Diary.findOne({ _id: id, shareStatus: true });
       if (!diary) {
