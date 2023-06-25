@@ -1,6 +1,8 @@
 import { Diary } from "../models/schemas/diary";
 import { User } from "../models";
 import { deleteDiaryImage } from "../utils/multer";
+import dotenv from "dotenv";
+dotenv.config();
 
 interface CreateDiary {
   (
@@ -59,13 +61,7 @@ const createDiary: CreateDiary = async (
 
     if (diaryToCreate) {
       throw new Error(
-        Error_Message.createDiaryError + "이미 해당 일자의 Diary가 존재합니다."
-      );
-    }
-
-    if (imageUrl === "undefined") {
-      throw new Error(
-        Error_Message.createDiaryError + "이미지 파일 등록에 실패했습니다."
+        `${Error_Message.createDiaryError} + 이미 해당 일자의 Diary가 존재합니다.`
       );
     }
 
@@ -85,9 +81,11 @@ const createDiary: CreateDiary = async (
 
     if (tag.includes("텀블러")) {
       await User.updateOne({ id }, { $inc: { tumblerNum: 1 } });
-    } else if (tag.includes("대중교통")) {
+    }
+    if (tag.includes("대중교통")) {
       await User.updateOne({ id }, { $inc: { transportNum: 1 } });
-    } else if (tag.includes("장바구니")) {
+    }
+    if (tag.includes("장바구니")) {
       await User.updateOne({ id }, { $inc: { basketNum: 1 } });
     }
 
@@ -111,22 +109,14 @@ const updateDiary: UpdateDiary = async (
   likeIds,
   imageUrl
 ) => {
+  // const diaryToUpdate = await Diary.findOne({ id, date });
+
+  // if (imageUrl !== diaryToUpdate?.imageUrl) {
+  //   const filePath = diaryToUpdate?.imageUrl;
+  //   deleteDiaryImage(filePath);
+  // }
+
   try {
-    const diaryToUpdate = await Diary.findOne({ id, date });
-
-    if (diaryToUpdate) {
-      const previousFilePath = `public/${diaryToUpdate.imageUrl.split("/")[3]}`;
-      deleteDiaryImage(previousFilePath);
-    }
-
-    if (tag.includes("텀블러")) {
-      await User.updateOne({ id }, { $inc: { tumblerNum: 1 } });
-    } else if (tag.includes("대중교통")) {
-      await User.updateOne({ id }, { $inc: { transportNum: 1 } });
-    } else if (tag.includes("장바구니")) {
-      await User.updateOne({ id }, { $inc: { basketNum: 1 } });
-    }
-
     const updatedDiary = await Diary.findOneAndUpdate(
       { id, date },
       {
@@ -138,7 +128,7 @@ const updateDiary: UpdateDiary = async (
         content,
         shareStatus,
         likeIds,
-        imageUrl,
+        imageUrl
       },
       { new: true }
     );
@@ -210,9 +200,9 @@ const diaryService = {
   async deleteDiary(id: string, date: Date) {
     try {
       const deletedDiary = await Diary.findOneAndDelete({ id, date });
-      const filePath = `public/images/${deletedDiary?.imageUrl.split("/")[3]}`;
+      const filePath = deletedDiary?.imageUrl;
       deleteDiaryImage(filePath);
-      console.log(`${id}님 ${date} 다이어리 삭제`);
+      console.log(`${date} 다이어리 삭제`);
     } catch (error) {
       throw new Error(Error_Message.deleteDiaryError);
     }

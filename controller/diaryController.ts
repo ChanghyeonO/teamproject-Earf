@@ -1,11 +1,10 @@
 import { Request, Response } from "express";
 import diaryService from "../services/diaryService";
+import { Diary } from "../models/schemas/diary";
 import { IUser } from "../models";
 import dotenv from "dotenv";
 import { Path } from "typescript";
 dotenv.config();
-
-// const Domain = 'http://34.64.216.86/images/';
 
 const diaryController = {
   async getAllDiariesByMonth(req: Request, res: Response) {
@@ -64,7 +63,15 @@ const diaryController = {
       const { tag, title, content, shareStatus, likeIds } = req.body;
       const { date } = req.params;
       const { id, name, profileImage, checkedBadge } = req.user as IUser;
-      const imageUrl = (process.env.IMAGEDOMAIN as Path) + req.file?.filename;
+      const diaryToUpdate = await Diary.findOne({ id, date });
+      let imageUrl: string | undefined;
+
+      if (req.file?.filename === undefined) {
+        imageUrl = diaryToUpdate?.imageUrl;
+      } else {
+        imageUrl = (process.env.IMAGEDOMAIN as Path) + req.file?.filename;
+      }
+
       const updatedDiary = await diaryService.updateDiary(
         id,
         name,
@@ -76,9 +83,9 @@ const diaryController = {
         content,
         shareStatus,
         likeIds,
-        imageUrl
+        imageUrl as string
       );
-      res.json(updatedDiary);
+      res.status(200).json(updatedDiary);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -91,7 +98,7 @@ const diaryController = {
         id,
         new Date(date as string)
       );
-      res.json(deletedDiary);
+      res.status(200).json(deletedDiary);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -104,7 +111,7 @@ const diaryController = {
         id,
         new Date(date as string)
       );
-      res.json(getDiary);
+      res.status(200).json(getDiary);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
