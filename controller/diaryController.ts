@@ -1,36 +1,44 @@
-import { Request, Response } from 'express';
-import diaryService from '../services/diaryService';
-import { IUser } from '../models';
-
-const Domain = 'http://34.64.216.86:4725/';
+import { Request, Response } from "express";
+import diaryService from "../services/diaryService";
+import { Diary } from "../models/schemas/diary";
+import { IUser } from "../models";
+import dotenv from "dotenv";
+import { Path } from "typescript";
+dotenv.config();
 
 const diaryController = {
   async getAllDiariesByMonth(req: Request, res: Response) {
     try {
-      const { startDate, endDate } = req.query;
+      const { month } = req.params;
       const { id } = req.user as IUser;
       const allDiariesByMonth = await diaryService.getAllDiariesByMonth(
         id,
-        new Date(startDate as string),
-        new Date(endDate as string)
+        month
       );
       res.status(200).json(allDiariesByMonth);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   },
+  async getAllDiariesTagByMonth(req: Request, res: Response) {
+    try {
+      const { month } = req.params;
+      const { id } = req.user as IUser;
+      const allDiariesTagByMonth = await diaryService.getAllDiariesTagByMonth(
+        id,
+        month
+      );
+      res.status(200).json(allDiariesTagByMonth);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
   async createDiary(req: Request, res: Response) {
     try {
-      const {
-        tag,
-        title,
-        content,
-        shareStatus,
-        likeIds
-      } = req.body;
+      const { tag, title, content, shareStatus, likeIds } = req.body;
       const { date } = req.params;
       const { id, name, profileImage, checkedBadge } = req.user as IUser;
-      const imageUrl = Domain + req.file?.filename;;
+      const imageUrl = (process.env.IMAGEDOMAIN as Path) + req.file?.filename;
       const createDiary = await diaryService.createDiary(
         id,
         name,
@@ -42,25 +50,28 @@ const diaryController = {
         content,
         shareStatus,
         likeIds,
-        imageUrl);
+        imageUrl
+      );
       res.status(200).json(createDiary);
     } catch (error: any) {
-      console.log(error)
+      console.log(error);
       res.status(500).json({ error: error.message });
     }
   },
   async updateDiary(req: Request, res: Response) {
     try {
-      const {
-        tag,
-        title,
-        content,
-        shareStatus,
-        likeIds
-      } = req.body;
+      const { tag, title, content, shareStatus, likeIds } = req.body;
       const { date } = req.params;
       const { id, name, profileImage, checkedBadge } = req.user as IUser;
-      const imageUrl = Domain + req.file?.filename;
+      const diaryToUpdate = await Diary.findOne({ id, date });
+      let imageUrl: string | undefined;
+
+      if (req.file?.filename === undefined) {
+        imageUrl = diaryToUpdate?.imageUrl;
+      } else {
+        imageUrl = (process.env.IMAGEDOMAIN as Path) + req.file?.filename;
+      }
+
       const updatedDiary = await diaryService.updateDiary(
         id,
         name,
@@ -72,8 +83,9 @@ const diaryController = {
         content,
         shareStatus,
         likeIds,
-        imageUrl);
-      res.json(updatedDiary);
+        imageUrl as string
+      );
+      res.status(200).json(updatedDiary);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -82,8 +94,11 @@ const diaryController = {
     try {
       const { date } = req.params;
       const { id } = req.user as IUser;
-      const deletedDiary = await diaryService.deleteDiary(id, new Date(date as string));
-      res.json(deletedDiary);
+      const deletedDiary = await diaryService.deleteDiary(
+        id,
+        new Date(date as string)
+      );
+      res.status(200).json(deletedDiary);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -92,8 +107,11 @@ const diaryController = {
     try {
       const { date } = req.params;
       const { id } = req.user as IUser;
-      const getDiary = await diaryService.getDiary(id, new Date(date as string));
-      res.json(getDiary);
+      const getDiary = await diaryService.getDiary(
+        id,
+        new Date(date as string)
+      );
+      res.status(200).json(getDiary);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

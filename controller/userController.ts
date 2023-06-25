@@ -1,12 +1,14 @@
-import { Request, RequestHandler, Response } from "express";
+import { Request, Response } from "express";
 import UserService from "../services/userService";
 import { setUserToken } from "../utils/jwt";
 import { IUser, User } from "../models";
 import { randomPassword } from "../utils/randomPassword";
 import sendmail from "../utils/sendmail";
-import { hashPassword } from "../utils/hashPassword";
 import bcrypt from "bcrypt";
-
+import sendResponse from "../utils/sendResponse";
+import dotenv from "dotenv";
+import { Path } from "typescript";
+dotenv.config();
 export default class UserController {
   private userService: UserService;
 
@@ -15,9 +17,17 @@ export default class UserController {
   }
 
   // 유저 회원가입
-  public registerUser: RequestHandler = async (req: Request, res: Response) => {
+  public registerUser = async (req: Request, res: Response) => {
     try {
       const { id, password, name, email, phoneNumber } = req.body;
+      const registeredId = await this.userService.getUserByloginId(id);
+      const registeredEmail = await this.userService.getUserByEmail(email);
+      if (registeredId) {
+        return sendResponse(res, 409, "이미 등록된 아이디입니다.");
+      }
+      if (registeredEmail) {
+        return sendResponse(res, 409, "이미 등록된 email입니다.");
+      }
       const user = await this.userService.registerUser(
         id,
         password,
@@ -25,29 +35,47 @@ export default class UserController {
         email,
         phoneNumber
       );
-      res
-        .status(200)
-        .json({ message: "회원가입이 정상적으로 이루어졌습니다.", user });
+      sendResponse(res, 201, "회원가입이 정상적으로 이루어졌습니다.", user);
+    } catch (error: any) {
+      sendResponse(res, 500, error.message);
+    }
+  };
+
+  // 유저ID 중복검사
+  public registerId = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.body;
+      const registeredId = await this.userService.getUserByloginId(id);
+      if (registeredId) {
+        sendResponse(res, 409, "이미 등록된 아이디입니다.");
+      }
+      sendResponse(res, 200, "사용 가능한 아이디입니다.");
     } catch (error) {
-      res.status(500).json({ error: (error as Error).message });
+      sendResponse(res, 500, (error as Error).message);
     }
   };
 
   // 유저 로그인
-  public loginUser: RequestHandler = async (req: Request, res: Response) => {
+  public loginUser = async (req: Request, res: Response) => {
     try {
       const { id, password } = req.body;
       const { accessToken, refreshToken } = await this.userService.loginUser(
         id,
         password
       );
-      res.status(200).json({
-        message: "로그인에 성공하였습니다.",
+      // res
+      //   .status(201)
+      //   .json({
+      //     message: "로그인에 성공하였습니다.",
+      //     accessToken,
+      //     refreshToken,
+      //   });
+      sendResponse(res, 201, "로그인에 성공하였습니다.", {
         accessToken,
         refreshToken,
       });
     } catch (error) {
-      res.status(401).json({ error: (error as Error).message });
+      sendResponse(res, 500, (error as Error).message);
     }
   };
 
@@ -62,38 +90,44 @@ export default class UserController {
         res.status(400).json({ error: "사용자를 식별할 수 없습니다." });
       }
     } catch (error) {
-      res.status(500).json({ error: (error as Error).message });
+      sendResponse(res, 500, (error as Error).message);
     }
   };
 
   // 유저 정보 가져오기
-  public getUserById: RequestHandler = async (req: Request, res: Response) => {
+  public getUserById = async (req: Request, res: Response) => {
     try {
       const { _id } = req.user as IUser;
       const user = await this.userService.getUserById(_id);
       res.json(user);
     } catch (error) {
-      res.status(500).json({ error: "유저정보를 불러오는데 실패하였습니다." });
+      sendResponse(res, 500, "유저정보를 불러오는데 실패하였습니다.");
+    }
+  };
+
+  // 유저 이름 가져오기
+  public getNameById = async (req: Request, res: Response) => {
+    try {
+      const { _id } = req.params;
+      const user = await this.userService.getUserById(_id);
+      res.json(user?.name);
+    } catch (error) {
+      sendResponse(res, 500, "유저정보를 불러오는데 실패하였습니다.");
     }
   };
 
   // 모든 유저 가져오기
-  public getAllUsers: RequestHandler = async (req: Request, res: Response) => {
+  public getAllUsers = async (req: Request, res: Response) => {
     try {
       const users = await this.userService.getAllUsers();
       res.json(users);
     } catch (error) {
-      res
-        .status(500)
-        .json({ error: "전체유저정보를 불러오는데 실패하였습니다." });
+      sendResponse(res, 500, "전체 유저정보를 불러오는데 실패하였습니다.");
     }
   };
 
   // 유저 정보 업데이트하기
-  public updateUserById: RequestHandler = async (
-    req: Request,
-    res: Response
-  ) => {
+  public updateUserById = async (req: Request, res: Response) => {
     try {
       const { _id } = req.user as IUser;
       const updatedUser = await this.userService.updateUserById(_id, req.body);
@@ -132,6 +166,30 @@ export default class UserController {
     }
   };
 
+  // 비밀번호 확인
+  public checkPassword = async (req: Request, res: Response) => {
+    try {
+      const { password } = req.body;
+      const { _id } = req.user as IUser;
+      const checkedPassword = await this.userService.checkPassword(
+        _id,
+        password
+      );
+      if (checkedPassword) {
+        res.status(200).json({
+          message: "비밀번호가 확인되었습니다. 마이페이지로 이동합니다.",
+        });
+      } else {
+        res.status(400).json({
+          message: "비밀번호가 일치하지 않습니다. 다시 입력해주세요!",
+        });
+      }
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+  };
+
+  // 비밀번호 초기화
   public resetPassword = async (req: Request, res: Response) => {
     try {
       const { email } = req.body;
@@ -153,6 +211,7 @@ export default class UserController {
     }
   };
 
+  // 비밀번호 변경
   public changePassword = async (req: Request, res: Response) => {
     try {
       const { _id } = req.user as IUser;
@@ -177,6 +236,95 @@ export default class UserController {
       await this.userService.updatePasswordFromId(_id, password);
 
       res.status(200).send("비밀번호 변경이 완료되었습니다.");
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+  };
+
+  // 프로필 이미지 변경
+  public changeProfile = async (req: Request, res: Response) => {
+    try {
+      const { _id } = req.user as IUser;
+      const profileImage =
+        (process.env.IMAGEDOMAIN as Path) + req.file?.filename;
+      const updatedImage = await this.userService.updateProfileImage(
+        _id,
+        profileImage
+      );
+      res.send(updatedImage);
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+  };
+
+  // 프로필 이미지 삭제
+  public deleteProfile = async (req: Request, res: Response) => {
+    try {
+      const { _id } = req.user as IUser;
+      const profileImage = `${process.env.IMAGEDOMAIN as Path}defaultImage.png`;
+      const defaultImage = await this.userService.updateProfileImage(
+        _id,
+        profileImage
+      );
+      res.send(defaultImage);
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+  };
+
+  // 유저 뱃지 추가
+  public getBadge = async (req: Request, res: Response) => {
+    const checkAndAddBadge = async (
+      user: IUser,
+      badgeName: string,
+      condition: boolean
+    ) => {
+      if (condition && !user.badges.includes(badgeName)) {
+        user.badges.push(badgeName);
+        await this.userService.updateUser(user._id, user);
+      }
+    };
+    try {
+      const { _id } = req.user as IUser;
+      const user = await this.userService.getUserById(_id);
+
+      if (!user) {
+        throw new Error("로그인을 다시 하세요!");
+      }
+
+      // 꾸준, 기록왕 뱃지
+      checkAndAddBadge(user, "꾸준", user.postNum >= 5);
+      checkAndAddBadge(user, "기록왕", user.postNum >= 10);
+      // 최초 뱃지
+      checkAndAddBadge(
+        user,
+        "최초",
+        user.tumblerNum + user.transportNum + user.basketNum > 0
+      );
+      // 텀블, 교통, 버켓 뱃지
+      checkAndAddBadge(user, "텀블", user.tumblerNum >= 3);
+      checkAndAddBadge(user, "교통", user.transportNum >= 3);
+      checkAndAddBadge(user, "버켓", user.basketNum >= 3);
+
+      sendResponse(
+        res,
+        200,
+        "뱃지 획득에 성공하였습니다. 지구를 지켜주셔서 감사합니다!"
+      );
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+  };
+
+  // 유저 회원 탈퇴
+  public deleteUser = async (req: Request, res: Response) => {
+    try {
+      const { _id } = req.user as IUser;
+      await this.userService.deleteUser(_id);
+      res.status(200).json({
+        message:
+          "회원 탈퇴가 정상적으로 완료되었습니다. 그동안 EarF를 이용해주셔서 감사합니다",
+      });
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
     }

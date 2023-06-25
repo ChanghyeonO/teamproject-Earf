@@ -3,6 +3,7 @@ import { Diary } from "../models/schemas/diary";
 const boastService = {
   // _id를 이용해 shareStatus가 true인 단일 다이어리 게시글 찾기
   async loadSingleDiary(id: string) {
+
     try {
       const diary = await Diary.findOne({ _id: id, shareStatus: true });
       if (!diary) {
@@ -17,44 +18,78 @@ const boastService = {
     }
   },
 
-  // shareStatus가 true인 다이어리 찾기
-  async loadBoast() {
+  //태그로 검색하기 기능
+  async loadBoast(tag?: string) {
     try {
-      const diaries = await Diary.find({ shareStatus: true }).sort({
-        createdAt: -1,
-      });
-      return diaries;
+      if (tag) {
+        const diaries = await Diary.aggregate([
+          {
+            $match: {
+              shareStatus: true,
+              tag: tag,
+            },
+          },
+          {
+            $match: {
+              $expr: {
+                $lte: [{ $size: "$tag" }, 1],
+              },
+            },
+          },
+        ]).sort({ createdAt: -1 });
+        return diaries;
+      } else {
+        const diaries = await Diary.find({ shareStatus: true }).sort({
+          createdAt: -1,
+        });
+        return diaries;
+      }
     } catch (error) {
       console.error(error);
       throw new Error("자랑하기 게시글을 불러오는데 실패했습니다.");
     }
   },
 
-  //tag 검색 기능, tag.length가 1 이하인 게시글만 검색
-  async searchByTag(tag: string) {
+  // shareStatus가 true인 다이어리 중에서 좋아요가 가장 많은 상위 5개의 다이어리 찾기
+  async loadTop5Boast() {
     try {
-      const diaries = await Diary.find({
-        shareStatus: true,
-        tag: { $in: [tag] },
-      }).sort({ createdAt: -1 });
+      const diaries = await Diary.aggregate([
+        { $match: { shareStatus: true, likeIds: { $ne: [] } } },
+        {
+          $addFields: {
+            likeCount: {
+              $cond: {
+                if: { $isArray: "$likeIds" },
+                then: { $size: "$likeIds" },
+                else: 0,
+              },
+            },
+          },
+        },
+        { $sort: { likeCount: -1 } },
+        { $limit: 5 },
+        { $project: { likeCount: 0 } },
+      ]);
       return diaries;
     } catch (error) {
       console.error(error);
-      throw new Error("태그 검색에 실패했습니다.");
+      throw new Error(
+        "좋아요가 많은 상위 5개의 자랑하기 게시글을 불러오는데 실패했습니다.",
+      );
     }
   },
 
   // 다이어리 게시글 좋아요 누르기 / 취소하기
-  async toggleLike(diaryId: string, userId: string) {
+  async toggleLike(diaryId: string, _id: string, name: string) {
     try {
       const diary = await Diary.findById(diaryId);
       if (!diary) {
         throw new Error("게시글을 찾을 수 없습니다.");
       }
 
-      const likeIndex = diary.likeIds.indexOf(userId);
+      const likeIndex = diary.likeIds.findIndex(like => like._id == _id);
       if (likeIndex === -1) {
-        diary.likeIds.push(userId);
+        diary.likeIds.push({ _id, name });
       } else {
         diary.likeIds.splice(likeIndex, 1);
       }

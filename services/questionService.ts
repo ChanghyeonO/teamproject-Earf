@@ -1,6 +1,7 @@
 import mongoose, { Schema, Types } from "mongoose";
 import Question from "../models/schemas/question";
 import Comment from "../models/schemas/comment";
+import User from "../models/schemas/user";
 
 const questionService = {
   // 커뮤니티 질문 생성
@@ -10,7 +11,7 @@ const questionService = {
     profileImage: string,
     checkedBadge: string,
     title: string,
-    content: string,
+    content: string
   ) {
     try {
       const question = new Question({
@@ -24,8 +25,17 @@ const questionService = {
         commentIds: [],
       });
       await question.save();
+
+      const user = await User.findOne({ id: id });
+      if (!user) {
+        throw new Error("사용자를 찾을 수 없습니다.");
+      }
+      user.postNum++;
+      await user.save();
+
       return question;
     } catch (error) {
+      console.error(error);
       throw new Error("커뮤니티 질문 생성에 실패하였습니다.");
     }
   },
@@ -35,7 +45,7 @@ const questionService = {
     userId: string,
     questionId: string,
     title: string,
-    content: string,
+    content: string
   ) {
     try {
       const question = await Question.findById(questionId);
@@ -126,7 +136,7 @@ const questionService = {
   async readAllQuestionsWithSort(
     sort: string = "latest",
     page: number = 1,
-    limit: number = 10,
+    limit: number = 10
   ) {
     try {
       const skip = (page - 1) * limit;
@@ -222,7 +232,7 @@ const questionService = {
         throw new Error("데이터베이스 조회에 실패했습니다.");
       }
       throw new Error(
-        "댓글이 없는 가장 오래된 질문을 불러오는데 실패하였습니다.",
+        "댓글이 없는 가장 오래된 질문을 불러오는데 실패하였습니다."
       );
     }
   },
@@ -236,6 +246,9 @@ const questionService = {
             numLikes: { $size: "$likeIds" },
             numComments: { $size: "$commentIds" },
           },
+        },
+        {
+          $match: { likeIds: { $ne: [] } }, // likeIds가 빈 배열이 아닌 문서만 선택
         },
         {
           $sort: { numLikes: -1, createdAt: -1 }, // 좋아요가 많은 순과 최신 순으로 정렬
@@ -264,6 +277,7 @@ const questionService = {
       }
 
       const result = {
+        _id: question._id,
         title: question.title,
         comment: latestComment.comment,
       };
@@ -272,8 +286,61 @@ const questionService = {
     } catch (error) {
       console.error(error);
       throw new Error(
-        "가장 최근에 댓글이 달린 게시글을 불러오는데 실패하였습니다.",
+        "가장 최근에 댓글이 달린 게시글을 불러오는데 실패하였습니다."
       );
+    }
+  },
+
+  //키워드로 제목, 내용 검색해서 같은 내용 있으면 해당 게시글 전부 가져오기
+  async searchQuestionsByKeyword(
+    keyword: string,
+    page: number = 1,
+    limit: number = 10
+  ) {
+    try {
+      const skip = (page - 1) * limit;
+
+      let matchCondition = {};
+      if (keyword) {
+        matchCondition = {
+          $or: [
+            { title: { $regex: keyword, $options: "i" } },
+            { content: { $regex: keyword, $options: "i" } },
+          ],
+        };
+        const matchedCount = await Question.countDocuments(matchCondition);
+        if (matchedCount === 0) {
+          throw new Error("검색 결과가 없습니다.");
+        }
+      }
+
+      const questions = await Question.aggregate([
+        {
+          $match: matchCondition,
+        },
+        {
+          $addFields: {
+            numLikes: { $size: "$likeIds" },
+            numComments: { $size: "$commentIds" },
+          },
+        },
+        {
+          $sort: { createdAt: -1 },
+        },
+        {
+          $skip: skip,
+        },
+        {
+          $limit: limit,
+        },
+      ]);
+
+      return questions;
+    } catch (error) {
+      if (error instanceof mongoose.Error) {
+        throw new Error("데이터베이스 조회에 실패하였습니다.");
+      }
+      throw error;
     }
   },
 
@@ -296,16 +363,16 @@ const questionService = {
   },
 
   // 좋아요 누르기 / 취소하기
-  async toggleLike(questionId: string, userId: string) {
+  async toggleLike(questionId: string, _id: string, name: string) {
     try {
       const question = await Question.findById(questionId);
       if (!question) {
         throw new Error("질문을 찾을 수 없습니다.");
       }
 
-      const likeIndex = question.likeIds.indexOf(userId);
+      const likeIndex = question.likeIds.findIndex((like) => like._id == _id);
       if (likeIndex === -1) {
-        question.likeIds.push(userId);
+        question.likeIds.push({ _id, name });
       } else {
         question.likeIds.splice(likeIndex, 1);
       }
@@ -320,14 +387,14 @@ const questionService = {
   // 커뮤니티 질문에 댓글 ID 추가
   async addCommentToQuestion(
     questionId: string,
-    commentId: Schema.Types.ObjectId,
+    commentId: Schema.Types.ObjectId
   ) {
     try {
       //게시글 찾아서 댓글 추가
       const question = await Question.findByIdAndUpdate(
         questionId,
         { $push: { commentIds: commentId } },
-        { new: true, useFindAndModify: false },
+        { new: true, useFindAndModify: false }
       );
 
       if (!question) {
