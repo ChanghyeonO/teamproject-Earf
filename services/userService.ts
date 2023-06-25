@@ -62,8 +62,18 @@ export default class UserService {
   };
 
   // ID로 유저 가져오기
-  public getUserById = async (id: string): Promise<IUser | null> => {
-    return User.findById(id);
+  public getUserById = async (_id: string): Promise<IUser | null> => {
+    return User.findById(_id);
+  };
+
+  // Email로 유저 가져오기
+  public getUserByEmail = async (email: string): Promise<IUser | null> => {
+    return User.findOne({ email });
+  };
+
+  // Email로 유저 가져오기
+  public getUserByloginId = async (id: string): Promise<IUser | null> => {
+    return User.findOne({ id });
   };
 
   // 모든 유저 가져오기
@@ -73,16 +83,17 @@ export default class UserService {
 
   // ID로 유저 업데이트하기
   public updateUserById = async (
-    id: string,
+    _id: string,
     updatedData: Partial<IUser>
   ): Promise<IUser | null> => {
     const updatedUser = await User.findByIdAndUpdate(
-      id,
+      _id,
       {
         name: updatedData.name,
         email: updatedData.email,
         phoneNumber: updatedData.phoneNumber,
         profileImage: updatedData.profileImage,
+        checkedBadge: updatedData.checkedBadge,
       },
       { new: true }
     );
@@ -118,10 +129,8 @@ export default class UserService {
           email: 1,
         }
       );
-      console.log(user);
       return user;
     } catch (error) {
-      console.log(error);
       throw new Error("유저의 토큰을 생성하는데 실패했습니다.");
     }
   };
@@ -132,6 +141,15 @@ export default class UserService {
       return user;
     } catch (error) {
       throw new Error("유저의 refresh토큰을 발견하는데 실패했습니다.");
+    }
+  };
+
+  public getUserPassword = async (_id: string): Promise<IUser | null> => {
+    try {
+      const user = await User.findOne({ _id }, "password");
+      return user;
+    } catch (error) {
+      throw new Error("유저의 password를 발견하는데 실패했습니다.");
     }
   };
 
@@ -148,8 +166,72 @@ export default class UserService {
         }
       );
     } catch (error) {
-      console.log(error);
       throw new Error("토큰 무효화에 실패했습니다.");
+    }
+  };
+
+  public async checkPassword(_id: string, password: string) {
+    try {
+      const user = await User.findById(_id).select("+password");
+      if (!user) {
+        throw new Error("유저를 찾을 수 없습니다.");
+      }
+
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      return passwordMatch;
+    } catch (error) {
+      console.log(error);
+      throw new Error("패스워드 확인에 실패했습니다.");
+    }
+  }
+
+  public async updatePasswordFromEmail(email: string, tempPassword: string) {
+    try {
+      await User.updateOne(
+        { email },
+        {
+          password: await hashPassword(tempPassword),
+          isTempPassword: true,
+        }
+      );
+    } catch (error) {
+      throw new Error("패스워드 갱신에 실패했습니다.");
+    }
+  }
+
+  public updatePasswordFromId = async (id: string, password: string) => {
+    try {
+      const hashedPassword = await hashPassword(password);
+      await User.updateOne(
+        { _id: id },
+        {
+          password: hashedPassword,
+          isTempPassword: false,
+        }
+      );
+    } catch (error) {
+      throw new Error("패스워드 갱신에 실패했습니다.");
+    }
+  };
+
+  public updateProfileImage = async (id: string, profileImage: string) => {
+    try {
+      await User.updateOne(
+        { _id: id },
+        {
+          profileImage,
+        }
+      );
+    } catch (error) {
+      throw new Error("프로필 이미지 업로드에 실패했습니다.");
+    }
+  };
+
+  public deleteUser = async (id: string) => {
+    try {
+      await User.deleteOne({ _id: id });
+    } catch (error) {
+      throw new Error("회원 탈퇴에 실패했습니다.");
     }
   };
 }
